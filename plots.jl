@@ -14,7 +14,7 @@ function plotruns(xys, nest2feeder, color, title; show_circles = false)
   fig = Figure(resolution = (1000,1000))
   ax = fig[1, 1] = Axis(fig, aspect = DataAspect(), xlabel = "X (cm)", ylabel = "Y (cm)", title = title)
 
-  colors = range(color, stop=colorant"black", length=length(xys) + 1)[1:end-1]
+  colors = range(color, stop=RGB{N0f8}(Gray(0)), length=length(xys) + 1)[1:end-1]
 
   for (isfirst, (xy, color)) in IterTools.flagfirst(zip(xys, colors))
     s = :homing
