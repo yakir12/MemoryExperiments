@@ -6,8 +6,7 @@ You'll need a new version of Julia installed (see [here](https://julialang.org/d
 
 ## How to use
 1. Download this repository.
-2. Start a new Julia REPL (e.g. by double-clicking the Julia icon) inside the downloaded folder (or navigate there from an open Julia session, e.g. `cd("the/path/to/MemoryExperiments")`).
-
+2. Start a new Julia REPL (e.g. by double-clicking the Julia icon) inside the downloaded folder. One way to accomplish this is with `cd("<path>")` where `<path>` is the path to the dowloaded MemoryExperiments folder. For instance, if you've downloaded this git-repository to your home directory, then `cd(joinpath(homedir(), "MemoryExperiments"))` should work.
 
 3. Simply run the `main.jl`-file with:
    ```julia
