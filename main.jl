@@ -9,7 +9,7 @@ import GLMakie: Gray, RGB, N0f8
 const intervals = sort([5, 10, 30, 60, 90, 120])
 
 include("stats.jl")
-const path = "figures"
+const path = "MemoryExperiments results"
 include("plots.jl")
 
 link = "https://s3.eu-central-1.amazonaws.com/vision-group-file-sharing/Data%20backup%20and%20storage/Ayse/db.arrow"
@@ -54,4 +54,4 @@ stats = select(df,
                [:nest2feeder, :turning_point] => ByRow((n2f, tp) -> -n2f - last(tp)) => "nest corrected vector",
               )
 
-CSV.write("stats.csv", stats)
+CSV.write(joinpath(path, "stats.csv"), stats)
