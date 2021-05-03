@@ -6,7 +6,9 @@ You'll need a new version of Julia installed (see [here](https://julialang.org/d
 
 ## How to use
 1. Download this repository.
-2. Start a new Julia REPL (e.g. by double-clicking the Julia icon) inside the downloaded folder (or navigate there from an open Julia session).
+2. Start a new Julia REPL (e.g. by double-clicking the Julia icon) inside the downloaded folder (or navigate there from an open Julia session, e.g. `cd("the/path/to/MemoryExperiments")`).
+
+
 3. Simply run the `main.jl`-file with:
    ```julia
    include("main.jl")
