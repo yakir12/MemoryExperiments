@@ -9,19 +9,19 @@ labels = Dict(:homing => "Tracks",
               :turning_point => "Turning points",
              )
 
-function plotruns(xys, tps, nest2feeder, color, title, show_circles)
+function plotruns(xys, nest2feeder, color, title, show_circles)
 
-  fig = Figure(resolution = (1000,1000))
+  fig = Figure()
   ax = fig[1, 1] = Axis(fig, aspect = DataAspect(), xlabel = "X (cm)", ylabel = "Y (cm)", title = title)
 
   colors = range(color, stop=RGB{N0f8}(Gray(0)), length=length(xys) + 1)[1:end-1]
 
-  for (isfirst, (xy, tp, color)) in IterTools.flagfirst(zip(xys, tps, colors))
+  for (isfirst, (xy, color)) in IterTools.flagfirst(zip(xys, colors))
     s = :homing
-    l = lines!(ax, Point2f0.(xy[1:tp]); ntentries[s]..., color = color)
+    l = lines!(ax, Point2f0.(xy); ntentries[s]..., color = color)
     isfirst && (l.label = labels[s])
     s = :turning_point
-    l = scatter!(ax, Point2f0(xy[tp]); ntentries[s]..., color = color)
+    l = scatter!(ax, Point2f0(xy[end]); ntentries[s]..., color = color)
     isfirst && (l.label = labels[s])
   end
   l = scatter!(ax, zero(Point2f0); ntentries[:fictive_nest]...)
@@ -32,9 +32,9 @@ function plotruns(xys, tps, nest2feeder, color, title, show_circles)
 
   if show_circles
     limits!(ax.finallimits[])
-    for radius in (5, 10, 30, 60, 90, 120)
+    for radius in intervals
       lines!(ax, Circle(dropoff, radius), color = :grey)
-      text!(ax, string(radius), position = Point2f0(0, radius - nest2feeder), align = (:left, :baseline))
+      # text!(ax, string(radius), position = Point2f0(0, radius - nest2feeder), align = (:left, :baseline))
     end
   end
 
@@ -43,7 +43,10 @@ function plotruns(xys, tps, nest2feeder, color, title, show_circles)
   fig
 end
 
-function plotsave(xys, tps, nest2feeder, color, title, show_circles)
-  fig = plotruns(xys, tps, nest2feeder, color, title, show_circles)
-  save("$title.png", fig)
+function plotsave(xys, k, show_circles)
+  hc, n2f, ht = k
+  color = tocolors(hc, n2f)
+  title = string(NamedTuple(k))[2:end-1]
+  fig = plotruns(xys, n2f, color, title, show_circles)
+  save(joinpath(path, join(k, "_")*".png"), fig)
 end
