@@ -5,9 +5,10 @@ Pkg.activate(@__DIR__)
 Pkg.instantiate()
 
 # packages we're using
-using Arrow, DataFrames, GLMakie, Statistics, LinearAlgebra, Measurements, OnlineStats, CSV, Dates
+using Arrow, DataFrames, CairoMakie, Statistics, LinearAlgebra, Measurements, OnlineStats, CSV, Dates
 import IterTools
-import GLMakie: Gray, RGB, N0f8
+import Colors: Gray, RGB, N0f8
+CairoMakie.activate!(type = "png")
 
 # the intervals for the Statistics
 const intervals = sort([5, 10, 30, 60, 90, 120, 150])

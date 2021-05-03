@@ -48,5 +48,5 @@ function plotsave(xys, k, show_circles)
   color = tocolors(hc, n2f)
   title = string(NamedTuple(k))[2:end-1]
   fig = plotruns(xys, n2f, color, title, show_circles)
-  save(joinpath(path, join(k, "_")*".png"), fig)
+  save(joinpath(path, join(k, "_")*".pdf"), fig)
 end
