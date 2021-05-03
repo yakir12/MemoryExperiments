@@ -11,4 +11,4 @@ You'll need a new version of Julia installed (see [here](https://julialang.org/d
    ```julia
    include("main.jl")
    ```
-4. All the figures in the article are generated and saved in new `figures` folder, and the statistics are saved in `stats.csv`.
+4. All the figures in the article have been generated in the `figures` folder, and the statistics are saved to the `stats.csv` file.
