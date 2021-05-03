@@ -1,5 +1,5 @@
 import Pkg
-Pkg.activate(".")
+Pkg.activate(@__DIR__)
 Pkg.instantiate()
 
 using Arrow, DataFrames, GLMakie, Statistics, LinearAlgebra, Measurements, OnlineStats, CSV
