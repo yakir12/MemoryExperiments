@@ -5,40 +5,18 @@ Pkg.activate(@__DIR__)
 Pkg.instantiate()
 
 # packages we're using
-using Arrow, DataFrames, GLMakie, CairoMakie, Statistics, LinearAlgebra, Measurements, OnlineStats, CSV, Dates
-import IterTools
+using Arrow, DataFrames, GLMakie, CairoMakie, Statistics, LinearAlgebra, Measurements, OnlineStats, CSV, Dates, Chain
 import Colors: Gray, RGB, N0f8
 import GLMakie.AbstractPlotting.data_text_boundingbox
 CairoMakie.activate!()
 # CairoMakie.AbstractPlotting.inline!(true)
 
-# get the tracks from the cloud
-link = "https://s3.eu-central-1.amazonaws.com/vision-group-file-sharing/Data%20backup%20and%20storage/Ayse/db.arrow"
-df = link |> download |> Arrow.Table |> DataFrame |> copy
+include("stats.jl")
 
-# we can't use any tracks with too-few coordinates
-filter!(:tp => >(1), df)
-
-# center everything on the dropoff point
-transform!(df, [:coords, :dropoff] => ByRow((xys, xy) -> xys .- Ref(xy)) => :coords,
-           [:fictive_nest, :dropoff] => ByRow(-) => :fictive_nest,
-           :dropoff => ByRow(zero) => :dropoff,
-          )
-
-# apply a couple of convenient transformations
-transform!(df, [:coords, :tp] => ByRow((xy, i) -> xy[1:i]) => :homing, # keep only the homing part of the track
-           [:coords, :tp] => ByRow((xy, i) -> xy[i]) => :turning_point, # add the turning point
-           :date => ByRow(x -> Date(string(x), dateformat"yyyymmdd")) => :date # change the date to a real date type
-          )
-
-# the intervals for the Statistics
-const intervals = sort([30, 60, 90, 120, 150])
-
-# the folder where all the results are saved
-const path = "MemoryExperiments results"
+categorize4figure(n2f, hc) = n2f == 130 ? hc == "postice" ? "postice" : "130" : "260"
 
 # coloring scheme
-function tocolors(holding_condition, nest2feeder)::RGB{N0f8} 
+function tocolors(holding_condition::String, nest2feeder::Int)::RGB{N0f8} 
   if holding_condition == "nonice"
     if nest2feeder == 130 
       RGB(255/255, 51/255, 13/255) 
@@ -52,74 +30,94 @@ function tocolors(holding_condition, nest2feeder)::RGB{N0f8}
   end
 end
 
+function tocolors(hc, n2f) 
+  color = tocolors(hc[1], n2f[1])
+  n = length(hc)
+  range(color, stop=RGB{N0f8}(Gray(0)), length = n + 1)[1:end-1]
+end
+
+# the folder where all the results are saved
+const path = "MemoryExperiments results"
 # create the plots, one plot per group
 mkpath(path)
 
-include("stats.jl")
 
-# the interval labels
-txt_intervals = [string("direction ", i1, "-", i2) for (i1,i2) in zip([0; intervals], [intervals; "∞"])]
+# the link to the data
+link = "https://s3.eu-central-1.amazonaws.com/vision-group-file-sharing/Data%20backup%20and%20storage/Ayse/db.arrow"
 
-# all the stats we're interested in
-
-stats = select(df, 
-               :runid,
-               "beetle ID",
-               :date,
-               "feeder to nest", 
-               "holding condition",
-               "holding time",
-               [:homing, :t] => ByRow(speedstats) => "speed μ±σ", 
-               [:homing, :dropoff] => ByRow(directionstats) => txt_intervals, 
-               [:dropoff, :turning_point] => ByRow(norm ∘ -) => "vector length",
-               :homing => ByRow(xy -> sum(norm, diff(xy))) => "path length",
-               [:nest2feeder, :turning_point] => ByRow((n2f, tp) -> -n2f - last(tp)) => "nest corrected vector",
-               [:dropoff, :turning_point, :nest2feeder] => ByRow((a,b,c) -> abs(norm(a - b) - c)) => "vector length difference",
-               [:dropoff, :turning_point] => ByRow((a,b) -> rad2deg(abs(angular_diff_from_pos_y_axis(b - a)))) => "angular difference",
-              )
-
-
-# save the table
-CSV.write(joinpath(path, "stats.csv"), stats)
-
-
-# a convinience function 
-function find_extrema(f, xyss; m = Inf, M = -Inf)
-  for xys in xyss
-    _m, _M = extrema(f, xys)
-    m = min(m, _m)
-    M = max(M, _M)
+df = @chain link begin
+  download # download the data
+  Arrow.Table # transform to an arrow table
+  DataFrame # transform to a dataframe
+  filter(:tp => >(1), _) # we can't use any tracks with too-few coordinates
+  sort("holding time") # sort by holding time
+  transform( # transform to coordinate types
+            :coords => ByRow(xy -> Point2f0.(xy)) => :coords,
+            [:dropoff, :fictive_nest] .=> ByRow(Point2f0) .=> [:dropoff, :fictive_nest]
+           )
+  # center everything on the dropoff point
+  transform([:coords, :dropoff] => ByRow(.-) => :coords,
+            [:fictive_nest, :dropoff] => ByRow(-) => :fictive_nest,
+            :dropoff => ByRow(zero) => :dropoff,
+           )
+  # apply a couple of convenient transformations
+  transform([:coords, :tp] => ByRow((xy, i) -> xy[1:i]) => :homing, # keep only the homing part of the track
+            [:coords, :tp] => ByRow((xy, i) -> xy[i]) => :turning_point, # add the turning point
+            :date => ByRow(x -> Date(string(x), dateformat"yyyymmdd")) => :date, # change the date to a real date type
+            ["feeder to nest", "holding condition"] => ByRow(categorize4figure) => :figure # add a categorization for the figure
+           )
+  # some stats
+  transform([:homing, :t] => ByRow(speedstats) => "speed μ±σ", 
+            [:dropoff, :turning_point] => ByRow(norm ∘ -) => "vector length",
+            :homing => ByRow(xy -> sum(norm, diff(xy))) => "path length",
+            [:nest2feeder, :turning_point] => ByRow((n2f, tp) -> -n2f - last(tp)) => "nest corrected vector",
+            [:dropoff, :turning_point] => ByRow((a,b) -> rad2deg(abs(angular_diff_from_pos_y_axis(b - a)))) => "angular difference",
+           )
+  @aside @chain _ begin
+    select(:runid,
+           "beetle ID",
+           :date,
+           "feeder to nest", 
+           "holding condition",
+           "holding time",
+           "speed μ±σ", 
+           "vector length",
+           "path length",
+           "nest corrected vector",
+           "angular difference",
+          )
+    CSV.write(joinpath(path, "stats.csv"), _)
   end
-  return m, M
+  groupby(["holding condition", "feeder to nest", "holding time"])
+  transform(["holding condition", "feeder to nest"] => tocolors => :color)
 end
 
-### main track figures ###
-transform!(df, ["feeder to nest", "holding condition"] => ByRow((n2f, hc) -> n2f == 130 ? hc == "postice" ? "postice" : "130" : "260") => :figure)
-sort!(df, "holding time")
-height = 600
-for (k,gd) in pairs(groupby(df, :figure))
-  # k, gd = first(pairs(groupby(df, :figure)))
-  ym, yM = find_extrema(last, gd.homing, M = maximum(last, gd.fictive_nest))
-  buf = (yM - ym)*2/100
-  ym -= buf
-  yM += buf
-  scene, layout = layoutscene(resolution = (2000, 650), figure_padding = 0)
-  for (i, (k, g)) in enumerate(pairs(groupby(gd, ["holding condition", "feeder to nest", "holding time"])))
-    hc, n2f, ht = k
-    title = join(k, " ")#string(NamedTuple(k))[2:end-1]
-    xm, xM = find_extrema(first, g.homing)
-    xm -= buf
-    xM += buf
-    ax = layout[1, i] = Axis(scene, width = height/(yM - ym)*(xM - xm),  height = height, limits = (xm, xM, ym, yM), xticks = [0], yticks = [0], title = title)
-    color = tocolors(hc, n2f)
-    lines!(ax, Circle(zero(Point2f0), getproperty(k, Symbol("feeder to nest"))), color = color)
-    _intervals = filter(<(getproperty(k, Symbol("feeder to nest"))), intervals)
-    for radius in _intervals
-      lines!(ax, Circle(zero(Point2f0), radius), color = :grey)
-      scatter!(ax, Point2f0(0, radius), color = :white, markersize = round(Int, length(string(radius))*45/3)*1px, strokewidth = 0)
+
+
+function plotgrid!(ax, nest2feeder, xm = nothing)
+  radii = 30:30:(nest2feeder - 1)
+  for radius in radii
+    lines!(ax, Circle(zero(Point2f0), radius), color = :grey70, linewidth = 1)
+  end
+  if !isnothing(xm)
+    positions = similar(radii, Point2f0)
+    radii = reverse(radii)
+    positions[1] = Point2f0(xm, sqrt(radii[1]^2 - xm^2))
+    for i in 2:length(positions)
+      if radii[i] > abs(xm)
+        positions[i] = Point2f0(xm, sqrt(radii[i]^2 - xm^2))
+      else
+        α = atan(reverse(positions[i-1])...)
+        positions[i] = Point2f0(radii[i]*cos(α), radii[i]*sin(α))
+      end
     end
-    positions = Point2f0.(0, _intervals)
-    textplot = text!(ax, [(string(r), p) for (r, p) in zip(_intervals, positions)], align=(:center, :center), color = :grey)
+    # positions = [r > abs(xm) ? Point2f0(xm, sqrt(r^2 - xm^2)) : Point2f0(
+    # _radii = filter(>(abs(xm)), radii)
+    # ys = [sqrt(r^2 - xm^2) for r in _radii]
+    # positions = Point2f0.(xm, ys)
+    labels = [string(r, " cm") for r in radii]
+    scatter!(ax, positions, color = :white, markersize = round.(Int, length.(labels)*30/3), strokewidth = 0)
+    textplot = text!(ax, Tuple.(zip(labels, positions)), align=(:center, :center), color = :grey70, rotation = [atan(reverse(p)...) - pi/2 for p in positions], textsize = 12)
     # layouts = textplot._glyphlayout[]
     # strings = textplot[1][]
     # bbs = map(strings, layouts) do str, l 
@@ -127,15 +125,51 @@ for (k,gd) in pairs(groupby(df, :figure))
     # end
     # scatter!(ax, positions, markersize=widths.(bbs), marker=Rect, color = :white)
     # ax.scene.plots[end-1:end] .= ax.scene.plots[[end, end-1]]
-    colors = range(color, stop=RGB{N0f8}(Gray(0)), length=nrow(g) + 1)[1:end-1]
-    for (isfirst, (xy, tp, color)) in IterTools.flagfirst(zip(g.homing, g.turning_point, colors))
-      l = lines!(ax, Point2f0.(xy); linestyle = nothing, linewidth = 1, color = color)
-      isfirst && (l.label = "Tracks")
-      l = scatter!(ax, Point2f0(tp); marker = '•', strokecolor = :transparent, markersize = 50px, color = color)
-      isfirst && (l.label = "Turning points")
+    # colors = range(color, stop=RGB{N0f8}(Gray(0)), length=nrow(g) + 1)[1:end-1]
+  end
+end
+# a convinience function 
+function find_extrema(f, xyss; m = Inf, M = -Inf, b = 5/100)
+  for xys in xyss
+    _m, _M = extrema(f, xys)
+    m = min(m, _m)
+    M = max(M, _M)
+  end
+  buff = (M - m)*b
+  return m - buff, M + buff
+end
+function dropmarker(p1, p2, factor)
+  tra1 = Translation(Point2f0(-1.,0))
+  v = p1 - p2
+  α = atan(reverse(v)...)
+  rot = LinearMap(Angle2d(α))
+  tra2 = Translation(p2)
+  f = tra2 ∘ rot ∘ tra1
+  t = 0:0.01:2pi
+  ps = [f(factor*Point2f0(cos(t),sin(t)*sin(t/2)^2)) for t in t]
+  GLMakie.AbstractPlotting.GeometryBasics.Polygon(ps)
+end
+
+height = 600
+for (k,gd) in pairs(groupby(df, :figure))
+  ym, yM = find_extrema(last, gd.homing, M = maximum(last, gd.fictive_nest))
+  scene, layout = layoutscene(resolution = (2000, 650), figure_padding = 0)
+  for (i, (k, g)) in enumerate(pairs(groupby(gd, ["holding condition", "feeder to nest", "holding time"])))
+    title = join(k, " ")
+    xm, xM = find_extrema(first, g.homing)
+    i == 1 && (xm -= 10)
+    ax = layout[1, i] = Axis(scene, aspect = DataAspect(), limits = (xm, xM, ym, yM), xticks = [0], xgridcolor = :grey70, ygridcolor = :grey70, yticks = [0], title = title)
+    colsize!(layout, i, Auto((xM - xm)/(yM - ym)))
+    nest2feeder = getproperty(k, Symbol("feeder to nest"))
+    plotgrid!(ax, nest2feeder, i == 1 ? xm + (nest2feeder == 130 ? 9 : 14) : nothing)
+    gcolor = g.color[1]
+    lines!(ax, Circle(zero(Point2f0), nest2feeder), color = gcolor)
+    for (xy, tp, color) in zip(g.homing, g.turning_point, g.color)
+      lines!(ax, Point2f0.(xy); linestyle = nothing, linewidth = 1, color = color)
+      poly!(ax, dropmarker(xy[end-1], xy[end], (yM - ym)/100); strokecolor = :transparent, markersize = 10px, color = color)
     end
-    scatter!(ax, Point2f0(first(g.fictive_nest)), color = color, marker = '⋆', markersize = 50px)
-    scatter!(ax, Point2f0(first(g.dropoff)), color = color, marker = '↓', markersize = 40px)
+    scatter!(ax, Point2f0(first(g.fictive_nest)), color = gcolor, strokecolor = GLMakie.AbstractPlotting.PlotUtils.darken(gcolor, 0.25), marker = :star5, markersize = 20px)
+    scatter!(ax, Point2f0(first(g.dropoff)), color = gcolor, marker = :rect, strokecolor = GLMakie.AbstractPlotting.PlotUtils.darken(gcolor, 0.25), markersize = 20px)
   end
   hidedecorations!.(contents(layout[1,:]), grid = false, minorgrid = false, minorticks = false)
   save(joinpath(path, string(k..., ".pdf")), scene)
