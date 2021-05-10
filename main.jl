@@ -12,7 +12,6 @@ CairoMakie.activate!()
 # CairoMakie.AbstractPlotting.inline!(true)
 
 include("stats.jl")
-include("plots.jl")
 
 # the folder where all the results are saved
 const path = "MemoryExperiments results"
