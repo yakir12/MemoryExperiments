@@ -7,9 +7,9 @@ Pkg.instantiate()
 # packages we're using
 using Arrow, DataFrames, GLMakie, CairoMakie, Statistics, LinearAlgebra, Measurements, OnlineStats, CSV, Dates, Chain, Rotations, CoordinateTransformations
 import Colors: Gray, RGB, N0f8
-import GLMakie.AbstractPlotting.data_text_boundingbox
+import GLMakie.Makie.data_text_boundingbox
 CairoMakie.activate!()
-# CairoMakie.AbstractPlotting.inline!(true)
+# CairoMakie.Makie.inline!(true)
 
 include("stats.jl")
 include("plots.jl")
@@ -94,8 +94,8 @@ for (k,gd) in pairs(groupby(df, :figure))
       lines!(ax, Point2f0.(xy); linestyle = nothing, linewidth = 1, color = color)
       poly!(ax, dropmarker(xy[end-1], xy[end], (yM - ym)/100); strokecolor = :transparent, markersize = 10px, color = color)
     end
-    scatter!(ax, Point2f0(first(g.fictive_nest)), color = gcolor, strokecolor = GLMakie.AbstractPlotting.PlotUtils.darken(gcolor, 0.25), marker = :star5, markersize = 20px)
-    scatter!(ax, Point2f0(first(g.dropoff)), color = gcolor, marker = :rect, strokecolor = GLMakie.AbstractPlotting.PlotUtils.darken(gcolor, 0.25), markersize = 20px)
+    scatter!(ax, Point2f0(first(g.fictive_nest)), color = gcolor, strokecolor = GLMakie.Makie.PlotUtils.darken(gcolor, 0.25), marker = :star5, markersize = 20px)
+    scatter!(ax, Point2f0(first(g.dropoff)), color = gcolor, marker = :rect, strokecolor = GLMakie.Makie.PlotUtils.darken(gcolor, 0.25), markersize = 20px)
   end
   hidedecorations!.(contents(layout[1,:]), grid = false, minorgrid = false, minorticks = false)
   save(joinpath(path, string(k..., ".pdf")), scene)
