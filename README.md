@@ -1,5 +1,5 @@
 # MemoryExperiments
-This is all the code needed to analyse the data from the memory experiments. 
+This is all the code needed to analyse the data from the memory experiments. It produces the figures used in the article as well as a `stats.csv` file with all the data used to produce these figures and more (i.e. `runid`, `beetle ID`, `date`, `feeder to nest`, `holding condition`, `holding time`, `speed μ±σ`, `vector length`, `path length`, `nest corrected vector`, `angular difference`)
 
 ## Requirements
 You'll need a new version of Julia installed (see [here](https://julialang.org/downloads/) for instructions on how to install Julia).
