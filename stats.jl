@@ -2,9 +2,7 @@ function speedstats(xy, t)
   Δt = mean(diff(t))
   l = norm.(diff(xy))
   s = l/Δt
-  μ = mean(s)
-  σ = std(s, mean = μ)
-  μ ± σ
+  mean_and_std(s)
 end
 
 function angular_diff_from_pos_y_axis(u)

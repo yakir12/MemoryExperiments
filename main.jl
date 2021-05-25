@@ -5,11 +5,8 @@ Pkg.activate(@__DIR__)
 Pkg.instantiate()
 
 # packages we're using
-using Arrow, DataFrames, GLMakie, CairoMakie, Statistics, LinearAlgebra, Measurements, OnlineStats, CSV, Dates, Chain, Rotations, CoordinateTransformations
+using Arrow, DataFrames, CairoMakie, Statistics, LinearAlgebra, OnlineStats, CSV, Dates, Chain, Rotations, CoordinateTransformations, StatsBase
 import Colors: Gray, RGB, N0f8
-import GLMakie.Makie.data_text_boundingbox
-CairoMakie.activate!()
-# CairoMakie.Makie.inline!(true)
 
 include("stats.jl")
 include("plots.jl")
@@ -70,12 +67,6 @@ df = @chain link begin
   transform(["holding condition", "feeder to nest"] => tocolors => :color)
 end
 
-
-# @chain df begin
-#   groupby(:figure)
-#   ym, yM = find_extrema(:homing, last, M = maximum(last, gd.fictive_nest))
-# end
-
 height = 600
 for (k,gd) in pairs(groupby(df, :figure))
   ym, yM = find_extrema(last, gd.homing, M = maximum(last, gd.fictive_nest))
@@ -94,96 +85,9 @@ for (k,gd) in pairs(groupby(df, :figure))
       lines!(ax, Point2f0.(xy); linestyle = nothing, linewidth = 1, color = color)
       poly!(ax, dropmarker(xy[end-1], xy[end], (yM - ym)/100); strokecolor = :transparent, markersize = 10px, color = color)
     end
-    scatter!(ax, Point2f0(first(g.fictive_nest)), color = gcolor, strokecolor = GLMakie.Makie.PlotUtils.darken(gcolor, 0.25), marker = :star5, markersize = 20px)
-    scatter!(ax, Point2f0(first(g.dropoff)), color = gcolor, marker = :rect, strokecolor = GLMakie.Makie.PlotUtils.darken(gcolor, 0.25), markersize = 20px)
+    scatter!(ax, Point2f0(first(g.fictive_nest)), color = gcolor, strokecolor = CairoMakie.Makie.PlotUtils.darken(gcolor, 0.25), marker = :star5, markersize = 20px)
+    scatter!(ax, Point2f0(first(g.dropoff)), color = gcolor, marker = :rect, strokecolor = CairoMakie.Makie.PlotUtils.darken(gcolor, 0.25), markersize = 20px)
   end
   hidedecorations!.(contents(layout[1,:]), grid = false, minorgrid = false, minorticks = false)
   save(joinpath(path, string(k..., ".pdf")), scene)
 end
-
-#
-# #### Length distributions figure ####
-# gd = groupby(stats, ["holding condition", "feeder to nest", "holding time"])
-# n = length(gd)
-# n += 10
-# f = Figure(resolution = (700, 1500), figure_padding = 0)
-# for (j,l) in enumerate(("vector length", "path length", "nest corrected vector"))
-#   ax = Axis(f[j, 1], aspect = AxisAspect(1))
-#   ys = []
-#   ysl = []
-#   for (i, (k, g)) in enumerate(pairs(gd))
-#     vector = abs.(g[:, l])
-#     y = (i - 1)/(n - 1)
-#     density!(ax, vector, offset = y, color = (:slategray, 0.4), bandwidth = 5, boundary = (0, 300))
-#     push!(ys, y)
-#     push!(ysl, join(k, " "))
-#   end
-#   ax.xticks = [0, 130, 260]
-#   ax.xlabel = l
-#   ax.yticks = (ys, ysl)
-#   xlims!(ax, 0, 300)
-#   hideydecorations!(ax, label = false, ticklabels = false, ticks = false, grid = true, minorgrid = true, minorticks = true)
-# end
-# save(joinpath(path, "lengths.png"), f)
-#
-#
-#
-# #### ayse figure ####
-# using StatsBase
-# absmean(x) = mean(abs, x)
-# gd = groupby(stats, ["holding condition", "feeder to nest", "holding time"])
-# a = combine(gd, "vector length" => length => "n",
-#             ["vector length", "path length", "nest corrected vector"] .=> median,
-#             ["vector length", "path length", "nest corrected vector"] .=> absmean,
-#             ["vector length", "path length", "nest corrected vector"] .=> std,
-#            )
-# μ = stack(a, r"mean", ["holding condition", "holding time", "feeder to nest"])
-# dict = levelsmap(μ.variable)
-# transform!(μ, :variable => ByRow(v -> dict[v]) => :grpi)
-# dict = levelsmap(μ[!, "holding time"])
-# transform!(μ, "holding time" => ByRow(v -> dict[v]) => :x)
-# gd = groupby(μ, ["holding condition", "feeder to nest"])
-# g = gd[1]
-# h = barplot(g.x, g.value, dodge = g.grpi, color = g.grpi)
-# ylims!(h.axis, (0, 255))
-# h.axis.xticks = (collect(values(dict)), string.(keys(dict)))
-# h
-# save(joinpath(path, "ayse figure.png"), h)
-#
-#
-# #### summary table for the lengths ####
-# gd = groupby(stats, ["holding condition", "feeder to nest", "holding time"])
-# a = combine(gd, "vector length difference" => length => "n",
-#             ["vector length difference", "angular difference"] .=> median,
-#             ["vector length difference", "angular difference"] .=> x -> mean(x) ± std(x),
-#            )
-# CSV.write(joinpath(path, "length summary.csv"), a)
-#
-#
-# data = filter("holding condition" => !=("postice"), stats)
-# gd = groupby(data, ["holding condition", "feeder to nest"])
-# fig = Figure()
-# axs = fig[1:2,1:3] = [Axis(fig) for i in 1:2, j in 1:3]
-# for (i, (k, g)) in enumerate(pairs(gd))
-#   for (j, (f, u)) in enumerate(zip(("vector length", "angular difference"), (" (cm)", " (°)")))
-#     boxplot!(axs[j,i], g[!, "holding time"], g[!, f], width = 3)
-#     axs[j,i].xticks = unique(g[!, "holding time"])
-#     axs[j,i].ylabel = uppercasefirst(f*u)
-#     if j == 1
-#       axs[j,i].title = join(k, " ")
-#       abline!(axs[j,i], getproperty(k, "feeder to nest"), 0, color = :gray, linestyle = :dash)
-#       axs[j,i].yticks = 0:65:260
-#       ylims!(axs[j,i], (0, 270))
-#     end
-#   end
-# end
-# linkxaxes!(axs...)
-# for i in 1:2
-#   linkyaxes!(axs[i, :]...)
-# end
-# hidexdecorations!.(axs[1,:], grid = false, minorgrid = false, minorticks = false)
-# hideydecorations!.(axs[:,2:end], grid = false, minorgrid = false, minorticks = false)
-# Label(fig[3,:], "Holding time (min)")
-# fig
-# save(joinpath(path, "length time.png"), fig)
-#

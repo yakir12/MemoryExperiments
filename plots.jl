@@ -38,23 +38,12 @@ function plotgrid!(ax, nest2feeder, xm = nothing)
         positions[i] = Point2f0(radii[i]*cos(α), radii[i]*sin(α))
       end
     end
-    # positions = [r > abs(xm) ? Point2f0(xm, sqrt(r^2 - xm^2)) : Point2f0(
-    # _radii = filter(>(abs(xm)), radii)
-    # ys = [sqrt(r^2 - xm^2) for r in _radii]
-    # positions = Point2f0.(xm, ys)
     labels = [string(r, " cm") for r in radii]
     scatter!(ax, positions, color = :white, markersize = round.(Int, length.(labels)*30/3), strokewidth = 0)
     textplot = text!(ax, Tuple.(zip(labels, positions)), align=(:center, :center), color = :grey70, rotation = [atan(reverse(p)...) - pi/2 for p in positions], textsize = 12)
-    # layouts = textplot._glyphlayout[]
-    # strings = textplot[1][]
-    # bbs = map(strings, layouts) do str, l 
-    #   data_text_boundingbox(str[1], l, Quaternionf0(0,0,0,1), Point3f0(0))
-    # end
-    # scatter!(ax, positions, markersize=widths.(bbs), marker=Rect, color = :white)
-    # ax.scene.plots[end-1:end] .= ax.scene.plots[[end, end-1]]
-    # colors = range(color, stop=RGB{N0f8}(Gray(0)), length=nrow(g) + 1)[1:end-1]
   end
 end
+
 # a convinience function 
 function find_extrema(f, xyss; m = Inf, M = -Inf, b = 5/100)
   for xys in xyss
@@ -65,6 +54,7 @@ function find_extrema(f, xyss; m = Inf, M = -Inf, b = 5/100)
   buff = (M - m)*b
   return m - buff, M + buff
 end
+
 function dropmarker(p1, p2, factor)
   tra1 = Translation(Point2f0(-1.,0))
   v = p1 - p2
