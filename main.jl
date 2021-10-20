@@ -59,7 +59,7 @@ df = @chain link begin
            "vector length",
            "path length",
            "nest corrected vector",
-           "angular difference",
+           # "angular difference",
           )
     CSV.write(joinpath(path, "stats.csv"), _)
   end
