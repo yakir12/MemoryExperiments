@@ -1,68 +1,81 @@
-categorize4figure(n2f, hc) = n2f == 130 ? hc == "postice" ? "postice" : "130" : "260"
+styles = (
+          homing        = (label = "homing", linewidth = 2,),
+          searching     = (label = "searching", linewidth = 1,),
+          turning_point = (label = "turning point", marker    = '◎', color = :red),
+          dropoff       = (label = "drop-off", marker    = '•', color = :white, strokewidth = 1),
+          nest          = (label = "nest", marker    = :star5,),
+          fictive_nest  = (label = "fictive nest", marker = :star5, color = :white, strokewidth = 1),
+         )
 
-# coloring scheme
-function tocolors(holding_condition::String, nest2feeder::Int)::RGB{N0f8} 
-  if holding_condition == "nonice"
-    if nest2feeder == 130 
-      RGB(255/255, 51/255, 13/255) 
-    else
-      RGB(64/255,255/255,64/255)
-    end
-  elseif holding_condition == "ice"
-    RGB(77/255, 217/255, 255/255)
+function plottrack(ax, dropoff, homing, turning_point, searching, fictive_nest, figure, color)
+  lines!(ax, homing; color, styles.homing...)
+  if figure ≠ :conflict
+    lines!(ax, searching; color, styles.searching...)
+  end
+  if figure == :displacement
+    scatter!(ax, dropoff; strokecolor = color, styles.dropoff...)
+  end
+  scatter!(ax, turning_point; color, styles.turning_point...)
+end
+
+function plottracks(ax, dropoff, homing, turning_point, searching, fictive_nest, nest, figure, color)
+  plottrack.(ax, dropoff, homing, turning_point, searching, fictive_nest, figure, color)
+  if figure[1] ≠ :displacement
+    scatter!(ax, dropoff[1]; strokecolor = color, styles.dropoff...)
+    scatter!(ax, fictive_nest[1]; strokecolor = color, styles.fictive_nest...)
   else
-    Gray(0.8)
+    scatter!(ax, nest[1]; color, styles.nest...)
   end
 end
 
-function tocolors(hc, n2f) 
-  color = tocolors(hc[1], n2f[1])
-  n = length(hc)
-  range(color, stop=RGB{N0f8}(Gray(0)), length = n + 1)[1:end-1]
+function plottracks(df; color = :black)
+  fig = Figure()
+  for (i, (k, gd)) in enumerate(pairs(groupby(df, :treatment)))
+    ax = Axis(fig[1,i], aspect = DataAspect(), title = string(k...), ylabel = "Y (cm)")
+    plottracks(ax, gd.dropoff, gd.homing, gd.turning_point, gd.searching, gd.fictive_nest, gd.nest, gd.figure, color)
+  end
+  axs = contents(fig[1, :])
+  linkaxes!(axs...)
+  hideydecorations!.(axs[2:end], grid = false)
+  Label(fig[2,:], "X (cm)", tellwidth = false, tellheight = true)
+  Legend(fig[3, :], axs[1], orientation = :horizontal, tellwidth = false, tellheight = true, merge = true, unique = true)
+  fig
 end
 
-function plotgrid!(ax, nest2feeder, xm = nothing)
-  radii = 30:30:(nest2feeder - 1)
-  for radius in radii
-    lines!(ax, Circle(zero(Point2f0), radius), color = :grey70, linewidth = 1)
+function plotspeeds(df, Mx, My; color = :black)
+  fig = Figure()
+  for (i, (k, gd)) in enumerate(pairs(groupby(df, :treatment)))
+    ax = Axis(fig[1,i], aspect = 1, title = string(k...), ylabel = "Speed (cm/sec)")
+    boxplot!(ax, gd.distance, color = color, gd.speed, width=speed_interval/2, show_median=true, show_outliers = false)
+    vlines!(ax, 0, color = :gray)
   end
-  if !isnothing(xm)
-    positions = similar(radii, Point2f0)
-    radii = reverse(radii)
-    positions[1] = Point2f0(xm, sqrt(radii[1]^2 - xm^2))
-    for i in 2:length(positions)
-      if radii[i] > abs(xm)
-        positions[i] = Point2f0(xm, sqrt(radii[i]^2 - xm^2))
-      else
-        α = atan(reverse(positions[i-1])...)
-        positions[i] = Point2f0(radii[i]*cos(α), radii[i]*sin(α))
-      end
-    end
-    labels = [string(r, " cm") for r in radii]
-    scatter!(ax, positions, color = :white, markersize = round.(Int, length.(labels)*30/3), strokewidth = 0)
-    textplot = text!(ax, Tuple.(zip(labels, positions)), align=(:center, :center), color = :grey70, rotation = [atan(reverse(p)...) - pi/2 for p in positions], textsize = 12)
-  end
+  axs = contents(fig[1, :])
+  linkaxes!(axs...)
+  xlims!(axs[1], -Mx, Mx)
+  ylims!(axs[1], nothing, My)
+  hideydecorations!.(axs[2:end], grid = false)
+  Label(fig[2,:], "Radial distance from the turning point (cm)", tellwidth = false, tellheight = true)
+  fig
 end
 
-# a convinience function 
-function find_extrema(f, xyss; m = Inf, M = -Inf, b = 5/100)
-  for xys in xyss
-    _m, _M = extrema(f, xys)
-    m = min(m, _m)
-    M = max(M, _M)
+function ploteach()
+  fig = Figure()
+  sl = Slider(fig[2, 1], range = 1:nrow(df))
+  homing = lift(sl.value) do i
+    Vector{Union{Missing, Point2f0}}(df.homing[i])
   end
-  buff = (M - m)*b
-  return m - buff, M + buff
+  turning_point = lift(sl.value) do i
+    df.turning_point[i]
+  end
+  searching = lift(sl.value) do i
+    Vector{Union{Missing, Point2f0}}(df.searching[i])
+  end
+  ax = Axis(fig[1,1], aspect = DataAspect())
+  lines!(ax, homing; styles.homing...)
+  scatter!(ax, turning_point; styles.turning_point...)
+  lines!(ax, searching; styles.searching...)
+  fig
 end
-
-function dropmarker(p1, p2, factor)
-  tra1 = Translation(Point2f0(-1.,0))
-  v = p1 - p2
-  α = atan(reverse(v)...)
-  rot = LinearMap(Angle2d(α))
-  tra2 = Translation(p2)
-  f = tra2 ∘ rot ∘ tra1
-  t = 0:0.01:2pi
-  ps = [f(factor*Point2f0(cos(t),sin(t)*sin(t/2)^2)) for t in t]
-  # GLMakie.AbstractPlotting.GeometryBasics.Polygon(ps)
-end
+using GLMakie
+GLMakie.activate!()
+ploteach()
