@@ -1,6 +1,5 @@
 # setup
 import Pkg
-Pkg.Registry.update() 
 Pkg.activate(@__DIR__)
 Pkg.instantiate()
 
@@ -91,3 +90,7 @@ for (k,gd) in pairs(groupby(df, :figure))
   hidedecorations!.(contents(layout[1,:]), grid = false, minorgrid = false, minorticks = false)
   save(joinpath(path, string(k..., ".pdf")), scene)
 end
+
+# the link to the angular data
+link = "https://s3.eu-central-1.amazonaws.com/vision-group-file-sharing/Data%20backup%20and%20storage/Ayse/Yilmaz%20et%20al.,_angles.xlsx"
+download(link, joinpath(path, "angular data.xlsx"))
